@@ -21,6 +21,8 @@ $dateformat = "yyyy-MM-dd HH:mm:ss.FF",
 [switch]$help = $false
 ) # param
 
+# Thread mutex to prevent race condition with Out-File
+$mtx = New-Object System.Threading.Mutex($false, "GetMsSqlDump")
 
 function ShowHelp {
 
@@ -131,7 +133,9 @@ function WriteLine($line, $file) {
     {$line}
  else 
     {
+    $mtx.WaitOne()>$nul
     $line | Out-File -Encoding utf8 -FilePath $file -Append
+    $mtx.ReleaseMutex()>$nul
     }
 } # function WriteLine
 
@@ -220,6 +224,7 @@ if ($file)
 	}
 
     ## Let's initialize the file before we start working / check if we can use the file
+    $mtx.WaitOne()>$nul
     if ($append)
 	{
 	"" | Out-File -Encoding utf8 $file -Append
@@ -229,6 +234,7 @@ if ($file)
 	"" | Out-File -Encoding utf8 $file
 	}
     }
+    $mtx.ReleaseMutex()>$nul
 		
 
 $connString = BuildConnectionString $server $db $username $password
