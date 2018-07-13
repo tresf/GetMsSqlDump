@@ -1,9 +1,8 @@
 ##
 ##	GetMsSqlDump
-##	Project site: http://getmssqldump.codeplex.com/
-##	Homepage : http://blog.rollback.hu
+##	https://github.com/tresf/GetMsSqlDump
 ##	
-##	version 0.3, release candidate
+##	version 0.3.1
 ##	Bitemo, Erik Gergely, Licensed under the Ms-RL (Microsoft Reciprocal License)
 
 param (
@@ -89,6 +88,8 @@ function FieldToString ($row, $column){
 
  $thestring = ""
  if (@("System.String", "System.Boolean", "System.Char", "System.Guid", "System.Datetime") -contains $column.Datatype ) 
+    {$quote = "'"}
+ elseif (@("string", "boolean", "char", "guid", "datetime") -contains $column.Datatype ) 
     {$quote = "'"}
  else
     {$quote = ""}
