@@ -131,7 +131,7 @@ function WriteLine($line, $file) {
     {$line}
  else 
     {
-    $line | Out-File -FilePath $file -Append
+    $line | Out-File -Encoding utf8 -FilePath $file -Append
     }
 } # function WriteLine
 
@@ -222,11 +222,11 @@ if ($file)
     ## Let's initialize the file before we start working / check if we can use the file
     if ($append)
 	{
-	"" | Out-File $file -Append
+	"" | Out-File -Encoding utf8 $file -Append
 	}
     else
 	{
-	"" | Out-File $file
+	"" | Out-File -Encoding utf8 $file
 	}
     }
 		
