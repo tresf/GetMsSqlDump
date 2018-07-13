@@ -333,7 +333,7 @@ $originalobj = $obj
 				{
 				$vals += (FieldToString $row $column) + ", "
 			        }
-			$vals = $insertheader + ($vals -replace ", $",")") 
+			$vals = $insertheader + ($vals -replace ", $",");")
 			WriteLine $vals $file
 			}
 ## increment the resultset counter
