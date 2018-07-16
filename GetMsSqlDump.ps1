@@ -17,9 +17,14 @@ $dateformat = "yyyy-MM-dd HH:mm:ss.FF",
 [switch]$append = $false,
 [switch]$Overwrite = $false,
 [switch]$noidentity = $false,
+[switch]$allowdots = $false,
+[switch]$pointfromtext = $false,
 [switch]$debug = $false,
 [switch]$help = $false
 ) # param
+
+# Halt on all exceptions
+$ErrorActionPreference = "Stop"
 
 # Thread mutex to prevent race condition with Out-File
 $mtx = New-Object System.Threading.Mutex($false, "GetMsSqlDump")
@@ -36,7 +41,8 @@ Usage:
 (powershell) GetMsSqlDump.ps1 [-server servername] [-db dbname] 
 	-table tablename -query query [-username username -password password] 
 	[-file filename] [-dateformat dateformat]
-	[-append] [-noidentity] [-debug] [-help] [-?]
+	[-append] [-noidentity] [-allowdots] [-pointfromtext]
+	[-debug] [-help] [-?]
 
 Parameters:
 Name		Description					Default
@@ -63,6 +69,11 @@ dateformat	Format of datetime fields in tables. For  yyyy-MM-dd HH:mm:ss.FF
 -append		If present, dump will be appended to the file
 		specified by filename.
 -noidentity	If present, identity values won't be dumped.
+-allowdots	Allow dots in target table name.  Disables
+		default behavior to replaceme dots with underscores.
+-pointfromtext	Attempts to convert SqlGeography POINT(x y)
+	values using PointFromText() WKT (well-known-text)
+	conversion
 -debug		Prints way more characters to your screen than
 		you'd like to.
 -help		Prints this short help. Ignores all other 
@@ -98,12 +109,20 @@ function FieldToString ($row, $column){
 
  if ($row.IsNull($column)) 
     {$thestring = 'NULL'}
- elseif ([string] $column.DataType -eq "System.DateTime")
+ elseif (@("System.Datetime", "datetime") -contains $column.DataType)
     {
-    $thestring = $quote + $row[$column].ToString($dateformat) + $quote
+	$thestring = $row[$column].ToString($dateformat)
+	# Prevent MySQL > 5.6.4 fractional rounding overflow
+	if ($thestring -eq '9999-12-31 23:59:59.99')
+		{ $thestring = '9999-12-31 23:59:59.49' }
+
+    $thestring = $quote + $thestring + $quote
     }
  else 
     {$thestring = $quote + ([string] $row[$column] -replace "'","''") + $quote}
+
+ if ($pointfromtext -and @("Microsoft.SqlServer.Types.SqlGeography", "sqlgeography") -contains $column.DataType)
+	{$thestring = "PointFromText('" + $thestring + "')"}
 
  $thestring
 } # function FieldToString
@@ -293,6 +312,9 @@ foreach ($obj in $tables)
 ## In case of multiple resultsets, we're going to incrementally rename them
 $resultsets = 0
 $originalobj = $obj
+
+if (!$allowdots) { $obj = $obj -replace "\.","_" }
+
 	foreach ($tbl in $ds.Tables) 
 		{ 
 ## Every subsequent result set will be dumped as records in the table <table>_<resultset ordinal>
