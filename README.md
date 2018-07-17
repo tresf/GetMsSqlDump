@@ -40,6 +40,8 @@ All switched **must** be prefixed with a single hyphen.  e.g. `-append -overwrit
 | `append` |	Dump will be appended to the file specified by file parameter. |
 | `overwrite` | Dump will overwrite the file specified by file parameter. |
 | `noidentity` | Identity values won't be dumped. This way you can add the rows to a table with the same identity column specification. If no identity column exists in the table, the switch will be ignored. |
+| `allowdots` | Disable the replacement of dots `.` in a table name with underscores `_`. |
+| `pointfromtext` | Use PointFromText attempts to convert `SqlGeography` `POINT(x y)` values using `PointFromText('POINT(x y)')` WKT (well-known-text) conversion |
 | `debug` |	Prints way more characters to your screen than you'd like to. If something didn’t work in the way you expected, or you want to submit a bug, run your statement with the debug switch. |
 | `help` or `?` |	Prints this short help. Ignores all other parameters. |
 
