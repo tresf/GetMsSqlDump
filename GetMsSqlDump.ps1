@@ -1,376 +1,356 @@
-##
-##	GetMsSqlDump
-##	https://github.com/tresf/GetMsSqlDump
-##	
-##	version 0.3.1
-##	Bitemo, Erik Gergely, Licensed under the Ms-RL (Microsoft Reciprocal License)
+#requires -version 2
 
-param (
-$server = "localhost",
-$db = "",
-$table = "",
-$query = "",
-$username = "",
-$password = "",
-$file = "",
-$dateformat = "yyyy-MM-dd HH:mm:ss.FF",
-[switch]$append = $false,
-[switch]$Overwrite = $false,
-[switch]$noidentity = $false,
-[switch]$allowdots = $false,
-[switch]$pointfromtext = $false,
-[switch]$debug = $false,
-[switch]$help = $false
-) # param
+<#
+.SYNOPSIS
+   GetMsSqlDump - A MySQL-like dumping tool for Microsoft SQL
+.DESCRIPTION
+   A MySQL-like dumping tool for Microsoft SQL
+.LINK
+   https://github.com/tresf/GetMsSqlDump
+.PARAMETER server
+   Name of database server to connect, port other than 1433 should be added with a comma (e.g. SQL01,1435)
+.PARAMETER db
+   Name of the database to connect to. If missing, the user's default database will be used
+.PARAMETER table
+   Name of table(s) to dump. You can use the * (asterisk) as wildcard which will be translated into the % wildcard during pattern matching.
+.PARAMETER query
+   An arbitrary SQL query which returns one or more result set(s)
+.PARAMETER username
+   SQL login name if SQL authentication is used. If no value given, Windows integrated authentication will be used.
+.PARAMETER password
+   SQL login password if SQL authentication is used and if -username is provided.
+.PARAMETER file
+   Destination of the dump file. If omitted, dump will be redirected to stdout.  See also -overwrite and -append.
+.PARAMETER dateformat
+   Format of datetime fields in tables (e.g. yyyy-MM-dd HH:mm:ss.FF)
+.PARAMETER append
+   Appends output to the specified file.  Cannot be combined with -overwrite.
+.PARAMETER overwrite
+   Overwrites the specified -file.  Cannot be combined with -append.
+.PARAMETER noidentity
+   If present, identity values won't be written to the output.
+.PARAMETER allowdots
+   Allow dots in target table name/disables default behavior to replace dots with underscores.
+.PARAMETER pointfromtext
+   Attempts to convert SqlGeography POINT(x y) values using PointFromText() WKT (well-known-text) conversion
+.PARAMETER debug
+   Prints debug information for troubleshooting and debugging purposes
+.PARAMETER help
+   Prints this short help. Ignores all other parameters.  Also may use -?
+.INPUTS
+   None
+.OUTPUTS
+   stdout unless -file is provided.
+.NOTES
+  Version:        0.3.1
+  Author:         Bitemo, Erik Gergely, Tres Finocchiaro
+  Creation Date:  2018
+  Purpose/Change: Updated for compatiblity with SQL Server 2016
+  License:        Microsoft Reciprocal License (MS-RL)
+.EXAMPLE
+  .\GetMsSqlDump.ps1 -server SQL01 -db WideWorldImporters -table Sales.Customers -file ~\Sales.Customer.sql -overwrite -noidentity
+#>
+
+Param(
+    [string]$server = "localhost",
+	[string]$db = "",
+    [string]$table = "",
+    [string]$query = "",
+    [string]$username = "",
+    [string]$password = "",
+    [string]$file = "",
+    [string]$dateformat = "yyyy-MM-dd HH:mm:ss.FF",
+    [switch]$append = $false,
+    [switch]$overwrite = $false,
+    [switch]$noidentity = $false,
+    [switch]$allowdots = $false,
+    [switch]$pointfromtext = $false,
+    [switch]$debug = $false,
+    [switch]$help = $false
+)
+
+#---------------------------------------------------------[Initialisations]--------------------------------------------------------
 
 # Halt on all exceptions
 $ErrorActionPreference = "Stop"
 
+#----------------------------------------------------------[Declarations]----------------------------------------------------------
+
 # Thread mutex to prevent race condition with Out-File
 $mtx = New-Object System.Threading.Mutex($false, "GetMsSqlDump")
 
-function ShowHelp {
-
-# Prints help
-
-@"
-GetMsSqlDump v0.3 - A dumping tool for Microsoft SQL Servers, 
-by <Bitemo, Erik Gergely>, 2009 http://blog.rollback.hu 
-
-Usage: 
-(powershell) GetMsSqlDump.ps1 [-server servername] [-db dbname] 
-	-table tablename -query query [-username username -password password] 
-	[-file filename] [-dateformat dateformat]
-	[-append] [-noidentity] [-allowdots] [-pointfromtext]
-	[-debug] [-help] [-?]
-
-Parameters:
-Name		Description					Default
-servername      Name of database server to connect, port	localhost
-		other than 1433 should be added with a comma
-		(e.g. SQL01,1435)
-dbname		Name of the database to read from. If missing,	[no default]
-		the user's default database will be used.
-tablename	Name of table(s) to dump. * can be used as      [no default]
-		wildcard. Note  that the schema is part of
-		the name.
-query		Custom query submitted. 						[no default]
-		Put it into double quotes. The insert commands will target
-		the tablename specified in the tablename parameter.
-username	SQL login name if SQL authentication is used	[no default]
-		If no value given, Windows integrated
-		authentication will be used.
-password	Password of the SQL login above.		[no default]
-filename	Destination of the dump. If omitted, dump will  [no default]
-		be redirected to stdout.
-dateformat	Format of datetime fields in tables. For  yyyy-MM-dd HH:mm:ss.FF
-		details please refer to the detailed 
-		help or MSDN "Custom DateTime Format Strings"
--append		If present, dump will be appended to the file
-		specified by filename.
--noidentity	If present, identity values won't be dumped.
--allowdots	Allow dots in target table name.  Disables
-		default behavior to replaceme dots with underscores.
--pointfromtext	Attempts to convert SqlGeography POINT(x y)
-	values using PointFromText() WKT (well-known-text)
-	conversion
--debug		Prints way more characters to your screen than
-		you'd like to.
--help		Prints this short help. Ignores all other 
-		parameters.
--?		Just like help, as long as it is the only 
-		parameter
-"@
-} # function ShowHelp
-
-
-function debugw ($message, $print=1) {
-
-# prints detailed info
-# $print is parameter for development phase to enable/disable messages
-
- if ($debug -and $print) 
-    {$message}
-} # function debugw
-
-
-function FieldToString ($row, $column){
-
-# formats the cell in parameter into a string, based on its type
-# this should be optimized for perfomance yet
-
- $thestring = ""
- if (@("System.String", "System.Boolean", "System.Char", "System.Guid", "System.Datetime") -contains $column.Datatype ) 
-    {$quote = "'"}
- elseif (@("string", "boolean", "char", "guid", "datetime") -contains $column.Datatype ) 
-    {$quote = "'"}
- else
-    {$quote = ""}
-
- if ($row.IsNull($column)) 
-    {$thestring = 'NULL'}
- elseif (@("System.Datetime", "datetime") -contains $column.DataType)
-    {
-	$thestring = $row[$column].ToString($dateformat)
-	# Prevent MySQL > 5.6.4 fractional rounding overflow
-	if ($thestring -eq '9999-12-31 23:59:59.99')
-		{ $thestring = '9999-12-31 23:59:59.49' }
-
-    $thestring = $quote + $thestring + $quote
+# Prints $message to the console if $debug is enabled
+# FIXME: Switch to Write-Verbose and $PSBoundParameters['Verbose'], first read https://stackoverflow.com/questions/44900568
+function Debug($message) {
+    if ($debug) {
+        $message
     }
- else 
-    {$thestring = $quote + ([string] $row[$column] -replace "'","''") + $quote}
+}
 
- if ($pointfromtext -and @("Microsoft.SqlServer.Types.SqlGeography", "sqlgeography") -contains $column.DataType)
-	{$thestring = "PointFromText('" + $thestring + "')"}
-
- $thestring
-} # function FieldToString
-
-
-function BuildConnectionString ($server, $db, $username, $password) {
-
-# creates the connectionstring from the input parameters
-
- $connStr = "Data Source=$server;"
- if ($db) 
-    { $connStr += "Initial Catalog=$db;"}
- if ($username) 
-    {$connStr += "User ID=$username;Password=$password;"}
- else 
-    {$connStr += "Integrated Security=SSPI;"}
-
- $connStr
-} # function BuildConnectionString 
-
-
-function WriteLine($line, $file) {
-
-# Writes an insert command to the specified destination
-
- if (!$file)
-    {$line}
- else 
-    {
-    $mtx.WaitOne()>$nul
-    $line | Out-File -Encoding utf8 -FilePath $file -Append
-    $mtx.ReleaseMutex()>$nul
+# FIXME: Mutex stub for non-Windows OS
+if ($IsMacOS -or $IsLinux) {
+    $mtx = New-Module -AsCustomObject -ScriptBlock {
+        function WaitOne() {}
+        function ReleaseMutex() {}
     }
-} # function WriteLine
+}
 
-##############
+#-----------------------------------------------------------[Functions]------------------------------------------------------------
 
-function BuildTableList($table, $connStr) {
-#
+# Formats the cell in parameter into a string, based on its type
+# FIXME: Optimize for performance
+function FieldToString($row, $column) {
+    $thestring = ""
+    if (@("System.String", "System.Boolean", "System.Char", "System.Guid", "System.Datetime") -contains $column.Datatype ) {
+        $quote = "'"
+    } elseif (@("string", "boolean", "char", "guid", "datetime") -contains $column.Datatype ) {
+        $quote = "'"
+    } else {
+        $quote = ""
+    }
+
+    if ($row.IsNull($column)) {
+        $thestring = 'NULL'
+    } elseif (@("System.Datetime", "datetime") -contains $column.DataType) {
+        $thestring = $row[$column].ToString($dateformat)
+        # Prevent MySQL > 5.6.4 fractional rounding overflow
+        if ($thestring -eq '9999-12-31 23:59:59.99') {
+            $thestring = '9999-12-31 23:59:59.49'
+        }
+        $thestring = $quote + $thestring + $quote
+    } else {
+        $thestring = $quote + ([string] $row[$column] -replace "'", "''") + $quote
+    }
+
+    # Handle geographic data types
+    if ($pointfromtext -and @("Microsoft.SqlServer.Types.SqlGeography", "sqlgeography") -contains $column.DataType) {
+        $thestring = "PointFromText('" + $thestring + "')"
+    }
+
+    $thestring
+}
+
+
+# Creates an SqlClient connection string
+function BuildConnectionString($server, $db, $username, $password) {
+    $connstr = "Data Source=$server;"
+    if ($db) {
+        $connstr += "Initial Catalog=$db;"
+    }
+
+    if ($username) {
+        $connstr += "User ID=$username;Password=$password;"
+    } else {
+        $connstr += "Integrated Security=SSPI;"
+    }
+
+    $connstr
+}
+
+# Appends $line to the specified $file, or to the screen if no $file is specified
+function WriteLine($line, $file, $append = $true) {
+    if (!$file) {
+        $line
+    } else {
+        $mtx.WaitOne() | Out-Null
+        if ($append) {
+            $line | Out-File -Encoding utf8 -FilePath $file -Append
+        } else {
+            $line | Out-File -Encoding utf8 -FilePath $file
+        }
+        $mtx.ReleaseMutex() | Out-Null
+    }
+}
+
 # Retrieve list of tables to be scripted
-#
+function BuildTableList($table, $connstr) {
+    $table = $table -replace "\*", "%"
 
- $table = $table -replace "\*","%"
+    # Fetch matching table(s) from schema
+    $query = "
+        IF ( Cast(Cast(Serverproperty('productversion') AS NVARCHAR(2)) AS FLOAT) < 9 )
+            -- pre-SQL2005
+            BEGIN
+                SELECT o.xtype,
+                    u.NAME + '.' + o.NAME oname
+                FROM   sysobjects o
+                    JOIN sysusers u
+                        ON o.uid = u.uid
+                WHERE  o.xtype = 'U'
+                    AND u.NAME + '.' + o.NAME LIKE '" + $table + "'
+            END
+        ELSE
+            BEGIN
+                SELECT s.NAME + '.' + t.NAME tname
+                FROM   sys.tables t
+                    JOIN sys.schemas s
+                        ON t.schema_id = s.schema_id
+                WHERE  t.is_ms_shipped = 0
+                    AND s.NAME + '.' + t.NAME LIKE '" + $table + "'
+        END
+    "
 
-	## 0.2 improvement: wildcard handling for all SQL versions
-	$query = "if (cast(cast(serverproperty('productversion') as nvarchar(2)) as float) < 9) -- pre-SQL2005
-	begin
-	select o.xtype, u.name + '.' + o.name  oname
-	from sysobjects o
-	join sysusers u
-	on o.uid = u.uid
-	where o.xtype = 'U'
-	and u.name + '.' + o.name like '" + $table + "'
-	end
-	else
-	begin
-	select s.name + '.' + t.name tname from sys.tables t join sys.schemas s
-	on t.schema_id = s.schema_id
-	where t.is_ms_shipped = 0
-	and s.name + '.' + t.name like '" + $table + "'
-	end"
-
- $conn = New-Object System.Data.SqlClient.SqlConnection $connStr
- $conn.Open()
- $cmd = New-Object System.Data.SqlClient.SqlCommand $query, $conn
- $adapter = New-Object System.Data.SqlClient.SqlDataAdapter
- $ds = New-Object System.Data.DataSet 
- $adapter.Selectcommand = $cmd
- $adapter.Fill($ds) | Out-Null
- $tables = @()
- foreach($t in $ds.Tables)
-    {
-    foreach ($row in $t.Rows)
-        {
-        $tables += $row["tname"]
+    $conn = New-Object System.Data.SqlClient.SqlConnection $connstr
+    $conn.Open()
+    $cmd = New-Object System.Data.SqlClient.SqlCommand $query, $conn
+    $adapter = New-Object System.Data.SqlClient.SqlDataAdapter
+    $ds = New-Object System.Data.DataSet
+    $adapter.SelectCommand = $cmd
+    $adapter.Fill($ds) | Out-Null
+    $tables = @()
+    foreach ($t in $ds.Tables) {
+        foreach ($row in $t.Rows) {
+            $tables += $row["tname"]
         }
     }
- $ds.Dispose()
- $cmd.Dispose()
- $adapter.Dispose()
- $conn.Close()
- $tables
-} # function BuildTableList
+    $ds.Dispose()
+    $cmd.Dispose()
+    $adapter.Dispose()
+    $conn.Close()
+    $tables
+}
 
-##	END OF FUNCTIONS
-##
-###########################################################################
-##
-##
-##	SCRIPT BODY STARTS HERE
-##
+#-----------------------------------------------------------[Execution]------------------------------------------------------------
 
-## To provide duration info -debug
+# Duration info for -debug flag
 $start = Get-Date
 
-## Help and exit
-if ($help -or !$table -or ($args.count -eq 1 -and $args[0] -eq "-?"))
-	{
-	ShowHelp
-	Exit
-	}
+# Show help if insufficient parameters were provided
+if (!$table -or $args[0] -eq "-?" -or ($args.Count -lt 1 -and $PSBoundParameters.Count -lt 1)) {
+    Get-Help ($MyInvocation.MyCommand.Definition)
+    Exit 2
+}
 
-if ($append -and $overwrite)
-## This combo makes no sense, commiting suicide...
-	{
-	Write-Error "You can't specify both -Append and -Overwrite. Remove one of them and rerun the command"
-	Exit
-	}
-if ($file)
-    {
-    ## Let's check for the file and scream if it exists. Oh, and commit suicide.
-    if (!$overwrite -and !$append -and (Test-Path $file))
-	{
-	Write-Error "File $file already exists. 
-	Please specify -Overwrite if you want to replace it or -Append if you want to
-	add the dump to the end of the file."
-	Exit
-	}
+# Avoid mutually exclusive switches
+if ($append -and $overwrite) {
+    Get-Help ($MyInvocation.MyCommand.Definition)
+    Write-Error "You can't specify both -append and -overwrite. Remove one of them and rerun the command."
+    Exit 2
+}
 
-    ## Let's initialize the file before we start working / check if we can use the file
-    $mtx.WaitOne()>$nul
-    if ($append)
-	{
-	"" | Out-File -Encoding utf8 $file -Append
-	}
-    else
-	{
-	"" | Out-File -Encoding utf8 $file
-	}
-    }
-    $mtx.ReleaseMutex()>$nul
-		
+# Avoid overwrite
+if ($file -and !$overwrite -and !$append -and (Test-Path $file)) {
+    Get-Help ($MyInvocation.MyCommand.Definition)
+    Write-Error "File $file already exists. Please specify -overwrite if you want to replace it or -append if you want to add the dump to the end of the file."
+    Exit 2
+}
 
-$connString = BuildConnectionString $server $db $username $password
-$conn = New-Object System.Data.SqlClient.SqlConnection $connString
-   debugw ("Connection string is: " + $conn.ConnectionString)
+# Initialize file
+WriteLine "" $file $false
+
+$connstring = BuildConnectionString $server $db $username $password
+$conn = New-Object System.Data.SqlClient.SqlConnection $connstring
+
+# Mask password from debug statements
+Debug "Connection string is: $($conn.ConnectionString -replace ";Password=$password;",";Password=****;")"
 $conn.Open()
-   debugw ("Connection state is " + $conn.State + " (should be open)")
+Debug "Connection state is $($conn.State) (should be open)"
 $cmd = New-Object System.Data.SqlClient.SqlCommand "", $conn
 $adapter = New-Object System.Data.SqlClient.SqlDataAdapter
-$ds = New-Object System.Data.DataSet 
+$ds = New-Object System.Data.DataSet
 $adapter.SelectCommand = $cmd
 
-   debugw "Building table list..."
-#########
-
+Debug "Building table list..."
 if ($query) {
-if (!$table) {$table = 'Qry'}
-} # if ($query)
+    if (!$table) {
+        $table = 'Qry'
+    }
+}
 
+# If using wildcards, pull out the table list otherwise we'll just create a
+# single-element array
+if ($table.Contains("*")) {
+    $tables = BuildTableList $table $connstring
+} else {
+    $tables = @($table)
+}
+Debug "The following table(s) will be dumped: $tables"
 
-##########
+# Loop through the collection of tables
+foreach ($obj in $tables) {
+    # Construct the select query and issue the command
+    # If we use a custom query, we'll use that for producing the data
+    $command = "SELECT * FROM " + $obj
+    if ($query) {
+        $command = $query
+    }
 
+    Debug("   $command")
+    $adapter.SelectCommand.CommandText = $command
+    $ds = New-Object System.Data.DataSet
 
-## IF we're using wildcards, we should pull out the table list
-## otherwise we'll just create a single-element array
+    # Fill the dataset
+    $adapter.Fill($ds) | Out-Null
 
-if ($table.Contains("*"))
-	{
-	$tables = BuildTableList $table $connString
-	}
-else
-	{
-	$tables = @($table)
-	}
-   debugw "The following table(s) will be dumped:"
-   debugw $tables
+    # Read the schema (needed for identity info)
+    $adapter.FillSchema($ds, "Mapped") | Out-Null
 
-## Loop through the collection of tables and do whatever must be done with them
+    # We expect a single table in the collection - except for custom queries
+    # In case of multiple resultsets, incrementally rename them
+    $resultsets = 0
+    $originalobj = $obj
 
-foreach ($obj in $tables) 
-	{
+    # Strip dots from table names as they fail to import into MySQL
+    if (!$allowdots) { $obj = $obj -replace "\.", "_" }
 
-## construct the select query and issue the command 
-## if we use a custom query, we'll use that for producing the data
-	$command = "select * from " + $obj
-	if ($query){$command = $query;}
-	$adapter.SelectCommand.CommandText = $command
-	$ds = New-Object System.Data.DataSet 
-## fill the dataset
-	$adapter.Fill($ds) | Out-Null 
-## read the schema - needed for identity info
-	$adapter.FillSchema($ds, "Mapped") | Out-Null
+    foreach ($tbl in $ds.Tables) {
+        # Every subsequent result set will be dumped as records in the table <table>_<resultset ordinal>
+        if ($resultsets -gt 0) {
+            $obj = "$($originalobj)_$($resultsets)"
+        }
 
+        WriteLine "" $file
+        WriteLine "-- Table $obj  / scripted at $(Get-Date) on server $server, database $db" $file
+        WriteLine "" $file
 
-## We expect a single table in the collection - except for custom queries
-## In case of multiple resultsets, we're going to incrementally rename them
-$resultsets = 0
-$originalobj = $obj
+        # First part of the insert statements
+        $insertheader = "INSERT INTO $obj ("
 
-if (!$allowdots) { $obj = $obj -replace "\.","_" }
+        # Can't remove identity column if it's part of primary key so remove
+        # the primary key first
+        foreach ($col in $tbl.Columns) {
+            if ($col.AutoIncrement -and $noidentity) {
+                Debug "Removing identity column $col"
+                $tbl.PrimaryKey = $null
+                $tbl.Columns.Remove($col)
+                # Break to avoid changing collection mid-use; one identity
+                # is allowed per table
+                break
+            }
+        }
 
-	foreach ($tbl in $ds.Tables) 
-		{ 
-## Every subsequent result set will be dumped as records in the table <table>_<resultset ordinal>
-		if ($resultsets -gt 0) {$obj = "$($originalobj)_$($resultsets)"}
-	WriteLine "" $file
-	WriteLine "-- Table $obj  / scripted at $(Get-Date) on server $server, database $db" $file
-	WriteLine "" $file
+        "Writing $obj... ($($tbl.Rows.Count.ToString()) rows)"
 
-## Creating the first part of the insert statements
-		$insertheader = "INSERT INTO " + $obj + "("
+        # Add the column names to the insert statement skeleton
+        foreach ($column in $tbl.Columns) {
+            $insertheader += "$($column.ColumnName), "
+            Debug "  $($column.ColumnName): $($column.DataType)"
+        }
+        $insertheader = $insertheader -replace ", $", ") VALUES("
 
-## we can't remove identity column if it's part of primary key
-## so we remove the primary key first
-		foreach ($col in $tbl.Columns)
-			{
-			if ($col.AutoIncrement -and $noidentity)
-				{
-				debugw "Removing identity column $col "
-				$tbl.PrimaryKey = $null
-				$tbl.Columns.Remove($col)
-## break is recommended otherwise .NET would get angry that we changed the collection
-## while it was being used - besides, maximum one identity is allowed per table
-				break
-				}
-			}
-		"Writing $obj... (" + $tbl.Rows.Count.ToString() + " rows)"
-		foreach ($column in $tbl.Columns)
-## add the colum names to the insert statement skeleton
-			{
-			$insertheader += $column.ColumnName + ", "
-			}
-		$insertheader = $insertheader -replace ", $", ") VALUES("
-## let's start the real data extract, row by row
-		foreach($row in $tbl.Rows)
-			{
-			$vals = ""
-			foreach($column in $tbl.Columns)
-				{
-				$vals += (FieldToString $row $column) + ", "
-			        }
-			$vals = $insertheader + ($vals -replace ", $",");")
-			WriteLine $vals $file
-			}
-## increment the resultset counter
-			$resultsets++
-		} # foreach ($tbl in $ds.Tables)
-## drop the dataset
-	$ds.Dispose(); 
-	} #foreach $obj in $tables
+        # Start data extract, row by row
+        foreach ($row in $tbl.Rows) {
+            $vals = ""
+            foreach ($column in $tbl.Columns) {
+                $vals += (FieldToString $row $column) + ", "
+            }
+            $vals = $insertheader + ($vals -replace ", $", ");")
+            WriteLine $vals $file
+        }
 
-## Final cleanup
- $cmd.Dispose()
- $adapter.Dispose()
- $ds.Dispose()
- $conn.Close()
+        # Increment the resultset counter
+        $resultsets++
+    }
+    # Drop the dataset
+    $ds.Dispose()
+}
 
-## print out runtime - debug
+# Final cleanup
+$cmd.Dispose()
+$adapter.Dispose()
+$ds.Dispose()
+$conn.Close()
+
+# End duration info for -debug flag
 $run = (Get-Date) - $start
-debugw "Load was $run" 
+Debug "Load was $run"

@@ -1,0 +1,27 @@
+sudo: required
+matrix:
+  include:
+  - os: osx
+env:
+  global:
+  - MYSQL_DATABASE=Northwinds
+  - MSSQL_USER=northwinds1
+  - MSSQL_SERVER=den1.mssql1.gear.host
+  - MSSQL_DATABASE=northwinds1
+  - MSSQL_TABLE=Orders
+  - secure: mZEeBLoOvlYxPvlfzKNzRGZ21pkJSzvhc49hyHCptgAPXYDT/FQNxhrGwyuFCzaRP+ltzpCdZp+suELolhDHxrv1K3pFZJqr0SgMOobW8QlVmW/FIg/SvHlA+Yqh+FciuqigjDNV6j5YeAbNu+jG2KBuGKNA489lt4+AktVaktNkk0XCzt0DIA0ttmHAMcmvYUDnsjYI2cPbuBrYbhJbc1heHAMAxH2R4XiH9zR0Obfkx/KgwycM6xCX7C6l2G+aaLQaw+W2+AOEi6lpvH0LYvMf/cduiFKrHYkMuYSFNPYdTESeDv7q8/uX+dKMX/6f6kK7iLCLwUlp1ZbZtVhu4FPrYvLEH6z0G8tnq3rHmt2Um/LUKjrs8UwJV2i9kTY7pDECxPyYYEuPvgFI9HLuzGeJABNCCybjYxzutpOs4iClp1qEixhBpmWVIQCsZ1Ffm+EHV3ngOyB9ylE96HenplnHOYWu8ZZfXk/V7SbCPOGtYGNCImlLX566Q164+FiNVEl/+Fjl/cz5mrxKUoFvhZxP0ufb0RTJQF9VkJPMNyvuyQ4iQZ8Zi8S4Z+HEcyZep5UbbcT5s9lq9SjJN6RiUjexs6zKYOzq03ABQVm+dw0hM68ZwKgnV6CXaClgBMUn0KayVwp9oG6uMGDOOGGGo5wvJ8eWcPCOx6KnytwdXeU=
+before_install:
+- brew tap caskroom/cask
+install:
+- brew install mysql
+- brew cask install powershell
+before_script:
+- mysql.server start
+- sudo mysql -e "CREATE USER '$USER'@'localhost'; GRANT ALL PRIVILEGES ON $MYSQL_DATABASE.*
+  TO '$USER'@'localhost'; FLUSH PRIVILEGES;"
+- mysql < $TRAVIS_BUILD_DIR/.travis/mysql_create_table.sql
+script:
+- pwsh $TRAVIS_BUILD_DIR/GetMsSqlDump.ps1 -server $MSSQL_SERVER -db $MSSQL_DATABASE
+  -table $MSSQL_TABLE -username $MSSQL_USER -password $MSSQL_PWD -debug -file $TRAVIS_BUILD_DIR/.travis/$MSSQL_TABLE.sql
+- mysql $MYSQL_DATABASE < $TRAVIS_BUILD_DIR/.travis/$MSSQL_TABLE.sql
+- mysql $MYSQL_DATABASE -Nse "SELECT COUNT(1) FROM $MSSQL_TABLE;"
