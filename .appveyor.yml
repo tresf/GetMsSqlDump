@@ -25,9 +25,10 @@ install:
   - ps: replace_all.ps1 $env:DIR\import_wwi.sql C:\WideWorldImporters\ $env:DIR
   - cmd: sqlcmd -i %DIR%\import_wwi.sql
 build_script:
-  - ps: GetMsSqlDump.ps1 -db $env:MSSQL_DATABASE -table $env:MSSQL_TABLE -username $env:MSSQL_USER -password "$env:MSSQL_PWD" -pointfromtext -file $env:DIR\$env:MSSQL_TABLE.sql
+  - ps: GetMsSqlDump.ps1 -db $env:MSSQL_DATABASE -table $env:MSSQL_TABLE -username $env:MSSQL_USER -password "$env:MSSQL_PWD" -debug -pointfromtext -file $env:DIR\$env:MSSQL_TABLE.sql
   - cmd: mysql --host=localhost --user=%MYSQL_USER% < %DIR%\mysql_create_table.sql
   - cmd: mysql --host=localhost --user=%MYSQL_USER% %MSSQL_DATABASE% < %DIR%\%MSSQL_TABLE%.sql
+  - cmd: mysql --host=localhost --user=%MYSQL_USER% %MSSQL_DATABASE% -Nse "SELECT COUNT(1) FROM Sales_Customers;"
 artifacts:
   - path: '**\$(MSSQL_TABLE).sql'
     name: $(MSSQL_TABLE).sql

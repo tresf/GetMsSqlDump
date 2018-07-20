@@ -1,13 +1,15 @@
-# GetMsSqlDump
-GetMsSqlDump - a mysqldump-like tool for MSSQL by <Bitemo, Erik Gergely>, 2009 http://blog.rollback.hu
+# GetMsSqlDump [![Travis-CI](https://travis-ci.org/tresf/GetMsSqlDump.svg?branch=master)](https://travis-ci.org/tresf/GetMsSqlDump) [![AppVeyor](https://ci.appveyor.com/api/projects/status/ldh5em2kj2j1ftl4?svg=true)](https://ci.appveyor.com/project/tresf/getmssqldump)
+A mysqldump-like tool for Microsoft SQL Server by Bitemo, Erik Gergely, Tres Finocchiaro
+
+[Click here to download.](https://github.com/tresf/GetMsSqlDump/archive/master.zip)
 
 ## Quick Reference
 
 ```ps1
-.\GetMsSqlDump.ps1 [-server servername] [-db dbname] 
-	-table tablename [-query “customquery”] [-username username -password password] 
-	[-file filename] [-dateformat dateformat]
-	[-append] [-noidentity] [-debug] [-help] [-?]
+.\GetMsSqlDump.ps1 [-server servername] [-db dbname]
+   -table tablename [-query "customquery"] [-username username -password password]
+   [-file filename] [-dateformat dateformat]
+   [-append] [-noidentity] [-debug] [-help] [-?]
 ```
 
 ## Description
@@ -17,14 +19,14 @@ This is a tool which enables you to dump the content of one or more tables into 
 
 ## Parameters
 
-All parameters **must** be prefixed with a single hyphen.  e.g. `-servername sql1`.
+All parameters **must** be prefixed with a single hyphen.  e.g. `-server sql1`.
 
 | Parameter | Description | Default Value |
 |-----------|-------------|---------------|
-| `servername` |	Name of database server to connect, port other than 1433 should be added with a comma (e.g. SQL01,1435). At the moment, protocols cannot be specified | `localhost` |
-| `dbname` | Name of the database to connect to. If missing, the user's default database will be used | N/A |
-| `tablename` | Name of table(s) to dump. You can use the `*` (asterisk) as wildcard which will be translated into the `%` wildcard during pattern matching. Note that the schema (or owner in pre-SQL 2005 versions) is part of the name. Wildcards work with pre-SQL 2005 versions now. If you want to dump all the tables, just type a `*`. If you use a custom query, tablename will be the name of the new pseudo-table the insert commands will target. | N/A |
-| `customquery` | An arbitrary SQL query which returns one or more result set(s). In case of multiple result sets the first result set will get the name specified by the `–table` parameter, the subsequent ones will get the specified name suffixed by an underscore and the 0-based ordinal of the result set. That is, if you specified tbl as the table name and you have 3 result sets, they’ll be called tbl, `tbl_1` and `tbl_2`. If you don’t specify a tablename, the built-in default is Qry. If you don’t specify column names for computed columns, they’ll get the name column`<ordinal>` name where `<ordinal>` shows the ordinal of the column among the unnamed columns. | N/A |
+| `server` |	Name of database server to connect, port other than 1433 should be added with a comma (e.g. SQL01,1435). At the moment, protocols cannot be specified | `localhost` |
+| `db` | Name of the database to connect to. If missing, the user's default database will be used | N/A |
+| `table` | Name of table(s) to dump. You can use the `*` (asterisk) as wildcard which will be translated into the `%` wildcard during pattern matching. Note that the schema (or owner in pre-SQL 2005 versions) is part of the name. Wildcards work with pre-SQL 2005 versions now. If you want to dump all the tables, just type a `*`. If you use a custom query, tablename will be the name of the new pseudo-table the insert commands will target. | N/A |
+| `query` | An arbitrary SQL query which returns one or more result set(s). In case of multiple result sets the first result set will get the name specified by the `–table` parameter, the subsequent ones will get the specified name suffixed by an underscore and the 0-based ordinal of the result set. That is, if you specified tbl as the table name and you have 3 result sets, they’ll be called tbl, `tbl_1` and `tbl_2`. If you don’t specify a tablename, the built-in default is Qry. If you don’t specify column names for computed columns, they’ll get the name column`<ordinal>` name where `<ordinal>` shows the ordinal of the column among the unnamed columns. | N/A |
 | `username` |	SQL login name if SQL authentication is used. If no value given, Windows integrated authentication will be used and the password parameter will be ignored. | N/A |
 | `password` | Password of the SQL login specified in the username parameter. If no username was specified, this parameter will be ignored. | N/A |
 | `file` |		Destination of the dump file. If omitted, dump will be redirected to stdout. If the file already exists, either the [`append` or the `overwrite` switch](#switches) should be specified. Submitting both switches results in script abortion to avoid ambiguous situations and unintentional data loss. | N/A |
