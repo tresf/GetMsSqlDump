@@ -16,7 +16,6 @@ A mysqldump-like tool for Microsoft SQL Server by Bitemo, Erik Gergely, Tres Fin
 
 This is a tool which enables you to dump the content of one or more tables into a text file in the form of INSERT INTO statements, allowing you to archive/transfer/review/modify the data in an easy and convenient way.
 
-
 ## Parameters
 
 All parameters **must** be prefixed with a single hyphen.  e.g. `-server sql1`.
@@ -32,7 +31,6 @@ All parameters **must** be prefixed with a single hyphen.  e.g. `-server sql1`.
 | `file` |		Destination of the dump file. If omitted, dump will be redirected to stdout. If the file already exists, either the [`append` or the `overwrite` switch](#switches) should be specified. Submitting both switches results in script abortion to avoid ambiguous situations and unintentional data loss. | N/A |
 | `dateformat` | Format of datetime fields in tables. For all the options please refer to the MSDN “Custom DateTime Format Strings" on the web. For basic tutorial, go down to the dateformat options section. | `yyyy-MM-dd HH:mm:ss.FF`|
 | `buffer` | Number of records to hold in memory before writing to file, affects performance. Set to 0 to disable. | `1024`|
-
 
 ### Switches
 Switches are Boolean parameters without arguments, if they present, their value will be true.
