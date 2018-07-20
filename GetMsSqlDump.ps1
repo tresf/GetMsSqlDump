@@ -66,7 +66,7 @@ Param(
     [switch]$allowdots = $false,
     [switch]$pointfromtext = $false,
     [switch]$debug = $false,
-	[switch]$version = $false,
+    [switch]$version = $false,
     [switch]$help = $false
 )
 
@@ -215,9 +215,9 @@ function BuildTableList($table, $connstr) {
 
 # Get version information and exit
 if ($version) {
-	$output = Get-Help ($MyInvocation.MyCommand.Definition) -Full | Out-String -Stream | Select-String "Version:"
-	([string]$output).Split(":")[1].Trim()
-	Exit 0
+    $output = Get-Help ($MyInvocation.MyCommand.Definition) -Full | Out-String -Stream | Select-String "Version:"
+    ([string]$output).Split(":")[1].Trim()
+    Exit 0
 }
 
 # Show help if insufficient parameters were provided
