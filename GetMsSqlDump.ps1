@@ -42,7 +42,7 @@
 .OUTPUTS
    stdout unless -file is provided.
 .NOTES
-  Version:        0.3.1
+  Version:        0.4.0
   Author:         Bitemo, Erik Gergely, Tres Finocchiaro
   Creation Date:  2018
   Purpose/Change: Updated for compatiblity with SQL Server 2016
@@ -53,7 +53,7 @@
 
 Param(
     [string]$server = "localhost",
-	[string]$db = "",
+    [string]$db = "",
     [string]$table = "",
     [string]$query = "",
     [string]$username = "",
