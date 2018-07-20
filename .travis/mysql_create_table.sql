@@ -12,9 +12,9 @@ CREATE TABLE Orders (
 	ShipVia int NOT NULL,
 	Freight	double default 0 NOT NULL,
 	ShipName nvarchar(40) NOT NULL,
-	ShipAddress nvarchar(60)	NOT NULL,
-	ShipCity nvarchar(15)	NOT NULL,
+	ShipAddress nvarchar(60) NOT NULL,
+	ShipCity nvarchar(15) NOT NULL,
 	ShipRegion nvarchar(15),
 	ShipPostalCode nvarchar(10),
-	ShipCountry nvarchar(15)	NOT NULL
+	ShipCountry nvarchar(15) NOT NULL
 );
