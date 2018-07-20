@@ -358,7 +358,7 @@ foreach ($obj in $tables) {
                 if ($linecount -eq 0) {
                     Debug "Writing using -buffer $buffer... ($rows remaining)..."
                 }
-                $linebuffer.Append("$vals`r`n") | Out-Null
+                $linebuffer.AppendLine("$vals") | Out-Null
                 $linecount++
                 if ($linecount % $buffer -eq 0) {
                     Debug "  Writing buffer at $linecount ($($rows - $linecount) remaining)"
