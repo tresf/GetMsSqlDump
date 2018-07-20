@@ -369,7 +369,7 @@ foreach ($obj in $tables) {
         }
 
         # Flush anything left
-        if ($linebuffer -ne "") {
+        if ($linebuffer.Length -ne 0) {
             Debug "  Writing buffer at $linecount ($($rows - $linecount) remaining)"
             WriteLine $linebuffer.toString() $file
         }
