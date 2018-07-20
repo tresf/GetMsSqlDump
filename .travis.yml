@@ -21,7 +21,6 @@ before_script:
   TO '$USER'@'localhost'; FLUSH PRIVILEGES;"
 - mysql < $TRAVIS_BUILD_DIR/.travis/mysql_create_table.sql
 script:
-- pwsh $TRAVIS_BUILD_DIR/GetMsSqlDump.ps1 -server $MSSQL_SERVER -db $MSSQL_DATABASE
-  -table $MSSQL_TABLE -username $MSSQL_USER -password $MSSQL_PWD -debug -file $TRAVIS_BUILD_DIR/.travis/$MSSQL_TABLE.sql
+- pwsh $TRAVIS_BUILD_DIR/GetMsSqlDump.ps1 -server $MSSQL_SERVER -db $MSSQL_DATABASE -table $MSSQL_TABLE -username $MSSQL_USER -password $MSSQL_PWD -debug -file $TRAVIS_BUILD_DIR/.travis/$MSSQL_TABLE.sql
 - mysql $MYSQL_DATABASE < $TRAVIS_BUILD_DIR/.travis/$MSSQL_TABLE.sql
 - mysql $MYSQL_DATABASE -Nse "SELECT COUNT(1) FROM $MSSQL_TABLE;"
