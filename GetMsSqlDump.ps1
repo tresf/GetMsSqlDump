@@ -66,6 +66,7 @@ Param(
     [switch]$allowdots = $false,
     [switch]$pointfromtext = $false,
     [switch]$debug = $false,
+	[switch]$version = $false,
     [switch]$help = $false
 )
 
@@ -212,8 +213,12 @@ function BuildTableList($table, $connstr) {
 
 #-----------------------------------------------------------[Execution]------------------------------------------------------------
 
-# Duration info for -debug flag
-$start = Get-Date
+# Get version information and exit
+if ($version) {
+	$output = Get-Help ($MyInvocation.MyCommand.Definition) -Full | Out-String -Stream | Select-String "Version:"
+	([string]$output).Split(":")[1].Trim()
+	Exit 0
+}
 
 # Show help if insufficient parameters were provided
 if (!$table -or $args[0] -eq "-?" -or ($args.Count -lt 1 -and $PSBoundParameters.Count -lt 1)) {
@@ -234,6 +239,9 @@ if ($file -and !$overwrite -and !$append -and (Test-Path $file)) {
     Write-Error "File $file already exists. Please specify -overwrite if you want to replace it or -append if you want to add the dump to the end of the file."
     Exit 2
 }
+
+# Duration info for -debug flag
+$start = Get-Date
 
 # Initialize file
 WriteLine "" $file $false
