@@ -23,6 +23,8 @@
    Destination of the dump file. If omitted, dump will be redirected to stdout.  See also -overwrite and -append.
 .PARAMETER dateformat
    Format of datetime fields in tables (e.g. yyyy-MM-dd HH:mm:ss.FF)
+.PARAMETER buffer
+   Number of records to hold in memory before writing to file, affects performance.
 .PARAMETER append
    Appends output to the specified file.  Cannot be combined with -overwrite.
 .PARAMETER overwrite
@@ -35,6 +37,8 @@
    Attempts to convert SqlGeography POINT(x y) values using PointFromText() WKT (well-known-text) conversion
 .PARAMETER debug
    Prints debug information for troubleshooting and debugging purposes
+.PARAMETER version
+   Prints the version information and exits
 .PARAMETER help
    Prints this short help. Ignores all other parameters.  Also may use -?
 .INPUTS
@@ -60,6 +64,7 @@ Param(
     [string]$password = "",
     [string]$file = "",
     [string]$dateformat = "yyyy-MM-dd HH:mm:ss.FF",
+    [int]$buffer = 1024,
     [switch]$append = $false,
     [switch]$overwrite = $false,
     [switch]$noidentity = $false,
@@ -327,7 +332,8 @@ foreach ($obj in $tables) {
             }
         }
 
-        "Writing $obj... ($($tbl.Rows.Count.ToString()) rows)"
+        $rows = $tbl.Rows.Count.ToString()
+        "Writing $obj... ($rows rows)"
 
         # Add the column names to the insert statement skeleton
         foreach ($column in $tbl.Columns) {
@@ -336,6 +342,8 @@ foreach ($obj in $tables) {
         }
         $insertheader = $insertheader -replace ", $", ") VALUES("
 
+        $linebuffer = New-Object System.Text.StringBuilder
+        $linecount = 0
         # Start data extract, row by row
         foreach ($row in $tbl.Rows) {
             $vals = ""
@@ -343,11 +351,33 @@ foreach ($obj in $tables) {
                 $vals += (FieldToString $row $column) + ", "
             }
             $vals = $insertheader + ($vals -replace ", $", ");")
-            WriteLine $vals $file
+            if (!$buffer) {
+                WriteLine $vals $file
+            } else {
+                # Buffer the data to reduce number of calls to Out-File
+                if ($linecount -eq 0) {
+                    Debug "Writing using -buffer $buffer... ($rows remaining)..."
+                }
+                $linebuffer.Append("$vals`r`n") | Out-Null
+                $linecount++
+                if ($linecount % $buffer -eq 0) {
+                    Debug "  Writing buffer at $linecount ($($rows - $linecount) remaining)"
+                    WriteLine $linebuffer.toString() $file
+                    $linebuffer.Clear() | Out-Null
+                }
+            }
+        }
+
+        # Flush anything left
+        if ($linebuffer -ne "") {
+            Debug "  Writing buffer at $linecount ($($rows - $linecount) remaining)"
+            WriteLine $linebuffer.toString() $file
         }
 
         # Increment the resultset counter
         $resultsets++
+        $linebuffer.Clear() | Out-Null
+        $linecount = 0
     }
     # Drop the dataset
     $ds.Dispose()
