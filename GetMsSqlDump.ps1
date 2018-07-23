@@ -347,6 +347,7 @@ foreach ($obj in $tables) {
         # Start data extract, row by row
         foreach ($row in $tbl.Rows) {
             $vals = ""
+            $linecount++
             foreach ($column in $tbl.Columns) {
                 $vals += (FieldToString $row $column) + ", "
             }
@@ -355,23 +356,21 @@ foreach ($obj in $tables) {
                 WriteLine $vals $file
             } else {
                 # Buffer the data to reduce number of calls to Out-File
-                if ($linecount -eq 0) {
+                if ($linecount -eq 1) {
                     Debug "Writing using -buffer $buffer... ($rows remaining)..."
                 }
-                $linebuffer.AppendLine("$vals") | Out-Null
-                $linecount++
-                if ($linecount % $buffer -eq 0) {
+
+                if ($linecount % $buffer -eq 0 -or $linecount -eq $rows) {
+                    # Don't append newline, Out-File will do it automatically
+                    $linebuffer.Append("$vals") | Out-Null
                     Debug "  Writing buffer at $linecount ($($rows - $linecount) remaining)"
                     WriteLine $linebuffer.toString() $file
                     $linebuffer.Clear() | Out-Null
+                } else {
+                    # Explicitely append newline
+                    $linebuffer.AppendLine("$vals") | Out-Null
                 }
             }
-        }
-
-        # Flush anything left
-        if ($linebuffer.Length -ne 0) {
-            Debug "  Writing buffer at $linecount ($($rows - $linecount) remaining)"
-            WriteLine $linebuffer.toString() $file
         }
 
         # Increment the resultset counter
@@ -391,4 +390,4 @@ $conn.Close()
 
 # End duration info for -debug flag
 $run = (Get-Date) - $start
-Debug "Load was $run"
+Debug "Duration: $run"
