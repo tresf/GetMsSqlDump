@@ -1,5 +1,4 @@
-# GetMsSqlDump [![Travis-CI](https://travis-ci.org/tresf/GetMsSqlDump.svg?branch=master)](https://travis-ci.org/tresf/GetMsSqlDump) [![AppVeyor](https://ci.appveyor.com/api/projects/status/ldh5em2kj2j1ftl4?svg=true)](https://ci.appveyor.com/project/tresf/getmssqldump)
-A mysqldump-like tool for Microsoft SQL Server by Bitemo, Erik Gergely, Tres Finocchiaro
+<table><tr><td><img src="https://user-images.githubusercontent.com/6345473/43097220-5efaf91e-8e89-11e8-8106-44b00cee67a0.png" width="150"></img></td><td><h1>GetMsSqlDump</h1><p>A mysqldump-like tool for Microsoft SQL Server by Bitemo, Erik Gergely, Tres Finocchiaro.</p></td></tr></table>
 
 [Click here to download.](https://github.com/tresf/GetMsSqlDump/archive/master.zip)
 
