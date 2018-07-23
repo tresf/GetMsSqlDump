@@ -367,7 +367,7 @@ foreach ($obj in $tables) {
                     WriteLine $linebuffer.toString() $file
                     $linebuffer.Clear() | Out-Null
                 } else {
-                    # Explicitely append newline
+                    # Explicitly append newline
                     $linebuffer.AppendLine("$vals") | Out-Null
                 }
             }
