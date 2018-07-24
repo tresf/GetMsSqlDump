@@ -2,7 +2,7 @@
 
 ## Links
 * Download [stable](https://github.com/tresf/GetMsSqlDump/releases) | [latest](https://github.com/tresf/GetMsSqlDump/archive/master.zip)
-* [Frequently asked questions (FAQ)](https://github.com/tresf/wiki/FAQ)
+* [Frequently asked questions (FAQ)](https://github.com/tresf/GetMsSqlDump/wiki/FAQ)
 
 ## Quick Reference
 
