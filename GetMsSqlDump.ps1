@@ -52,7 +52,7 @@
 .OUTPUTS
    stdout unless -file is provided.
 .NOTES
-  Version:        0.4.0
+  Version:        0.4.1
   Author:         Bitemo, Erik Gergely, Tres Finocchiaro
   Creation Date:  2018
   Purpose/Change: Updated for compatiblity with SQL Server 2016
