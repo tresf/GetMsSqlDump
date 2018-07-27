@@ -2,7 +2,7 @@
 
 ## Links
 * Download [stable](https://github.com/tresf/GetMsSqlDump/releases) | [latest](https://github.com/tresf/GetMsSqlDump/archive/master.zip)
-* [Frequently asked questions (FAQ)](https://github.com/tresf/wiki/FAQ)
+* [Frequently asked questions (FAQ)](https://github.com/tresf/GetMsSqlDump/wiki/FAQ)
 
 ## Quick Reference
 
@@ -31,6 +31,7 @@ All parameters **must** be prefixed with a single hyphen.  e.g. `-server sql1`.
 | `password` | Password of the SQL login specified in the username parameter. If no username was specified, this parameter will be ignored. | N/A |
 | `file` |		Destination of the dump file. If omitted, dump will be redirected to stdout. If the file already exists, either the [`append` or the `overwrite` switch](#switches) should be specified. Submitting both switches results in script abortion to avoid ambiguous situations and unintentional data loss. | N/A |
 | `dateformat` | Format of datetime fields in tables. For all the options please refer to the MSDN “Custom DateTime Format Strings" on the web. For basic tutorial, go down to the dateformat options section. | `yyyy-MM-dd HH:mm:ss.FF`|
+| `format` | Destination database dump format to influence platform-specific commands.  (e.g. mysql, mssql) | N/A |
 | `buffer` | Number of records to hold in memory before writing to file, affects performance. Set to 0 to disable. | `1024`|
 
 ### Switches
@@ -45,6 +46,8 @@ All switched **must** be prefixed with a single hyphen.  e.g. `-append -overwrit
 | `noidentity` | Identity values won't be dumped. This way you can add the rows to a table with the same identity column specification. If no identity column exists in the table, the switch will be ignored. |
 | `allowdots` | Disable the replacement of dots `.` in a table name with underscores `_`. |
 | `pointfromtext` | Use PointFromText attempts to convert `SqlGeography` `POINT(x y)` values using `PointFromText('POINT(x y)')` WKT (well-known-text) conversion |
+| `noautocommit` | Instructs the dump file to commit all lines at once.  May speed up processing time.  Ignored if `-format` is not provided. |
+| `condense` | Condense multiple INSERT INTO statements into single statements. Significant performance boost; debugging becomes difficult. |
 | `debug` |	Prints way more characters to your screen than you'd like to. If something didn’t work in the way you expected, or you want to submit a bug, run your statement with the debug switch. |
 | `version` |	Prints the version information and exits. |
 | `help` or `?` |	Prints this short help. Ignores all other parameters. |

@@ -23,6 +23,8 @@
    Destination of the dump file. If omitted, dump will be redirected to stdout.  See also -overwrite and -append.
 .PARAMETER dateformat
    Format of datetime fields in tables (e.g. yyyy-MM-dd HH:mm:ss.FF)
+.PARAMETER format
+   Destination database dump format to influence platform-specific commands.  (e.g. mysql, mssql)
 .PARAMETER buffer
    Number of records to hold in memory before writing to file, affects performance.
 .PARAMETER append
@@ -35,6 +37,10 @@
    Allow dots in target table name/disables default behavior to replace dots with underscores.
 .PARAMETER pointfromtext
    Attempts to convert SqlGeography POINT(x y) values using PointFromText() WKT (well-known-text) conversion
+.PARAMETER noautocommit
+   Instructs the dump file to commit all lines at once.  May speed up processing time.  Ignored if -format is not provided.
+.PARAMETER condense
+   Condense multiple INSERT INTO statements into single statements. Significant performance boost; debugging becomes difficult.
 .PARAMETER debug
    Prints debug information for troubleshooting and debugging purposes
 .PARAMETER version
@@ -64,12 +70,15 @@ Param(
     [string]$password = "",
     [string]$file = "",
     [string]$dateformat = "yyyy-MM-dd HH:mm:ss.FF",
+    [string]$format = $null,
     [int]$buffer = 1024,
     [switch]$append = $false,
     [switch]$overwrite = $false,
     [switch]$noidentity = $false,
     [switch]$allowdots = $false,
     [switch]$pointfromtext = $false,
+    [switch]$noautocommit = $false,
+    [switch]$condense = $false,
     [switch]$debug = $false,
     [switch]$version = $false,
     [switch]$help = $false
@@ -316,6 +325,13 @@ foreach ($obj in $tables) {
         WriteLine "-- Table $obj  / scripted at $(Get-Date) on server $server, database $db" $file
         WriteLine "" $file
 
+        # Handle deferred commits, can improve performance
+        if ($noautocommit) {
+            if ($format -eq "mysql") { WriteLine "SET autocommit=0;" $file }
+            elseif ($format -eq "mssql") { WriteLine "SET IMPLICIT_TRANSACTIONS ON;" $file }
+            else { Write-Warning "Flag `$noautocommit was specified without `$format.  Ignoring." }
+        }
+
         # First part of the insert statements
         $insertheader = "INSERT INTO $obj ("
 
@@ -341,6 +357,7 @@ foreach ($obj in $tables) {
             Debug "  $($column.ColumnName): $($column.DataType)"
         }
         $insertheader = $insertheader -replace ", $", ") VALUES("
+        $terminator = ";"
 
         $linebuffer = New-Object System.Text.StringBuilder
         $linecount = 0
@@ -351,7 +368,29 @@ foreach ($obj in $tables) {
             foreach ($column in $tbl.Columns) {
                 $vals += (FieldToString $row $column) + ", "
             }
-            $vals = $insertheader + ($vals -replace ", $", ");")
+
+            # Condense multiple INSERT INTO statements
+            # - MSSQL limits this technique to 1000 rows at a time so we'll honor that for all engines
+            # - MySQL limits this on buffer size, so in rare edge-cases 1000 may be too big
+            $condensemax = 1000
+            $rowheader = $insertheader
+            if ($condense) {
+                # Each condensed block must begin with "INSERT INTO ..."
+                if ($linecount % $condensemax -eq 1) {
+                    $rowheader = $insertheader
+                } else {
+                    $rowheader = "    ("
+                }
+
+                # Each condensed block must end with a semicolon ";"
+                if ($linecount % $condensemax -eq 0 -or $linecount -eq $rows) {
+                    $terminator = ";"
+                } else {
+                    $terminator = ","
+                }
+            }
+
+            $vals = $rowheader + ($vals -replace ", $", ")$terminator")
             if (!$buffer) {
                 WriteLine $vals $file
             } else {
@@ -377,6 +416,12 @@ foreach ($obj in $tables) {
         $resultsets++
         $linebuffer.Clear() | Out-Null
         $linecount = 0
+
+        # Handle deferred commits, can improve performance
+        if ($noautocommit) {
+            if ($format -eq "mysql") { WriteLine "COMMIT;" $file }
+            elseif ($format -eq "mssql") { WriteLine "COMMIT TRANSACTION;" $file }
+        }
     }
     # Drop the dataset
     $ds.Dispose()
