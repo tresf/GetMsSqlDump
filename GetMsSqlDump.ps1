@@ -27,8 +27,6 @@
    Destination database dump format to influence platform-specific commands.  (e.g. mysql, mssql)
 .PARAMETER buffer
    Number of records to hold in memory before writing to file, affects performance.
-.PARAMETER lock
-   Adds read/write table lock instructions to dump file
 .PARAMETER append
    Appends output to the specified file.  Cannot be combined with -overwrite.
 .PARAMETER overwrite
@@ -43,6 +41,8 @@
    Instructs the dump file to commit all lines at once.  May speed up processing time.  Ignored if -format is not provided.
 .PARAMETER condense
    Condense multiple INSERT INTO statements into single statements. Significant performance boost; debugging becomes difficult.
+.PARAMETER lock
+   Adds table lock instructions to the dump file
 .PARAMETER debug
    Prints debug information for troubleshooting and debugging purposes
 .PARAMETER version
@@ -73,7 +73,6 @@ Param(
     [string]$dateformat = "yyyy-MM-dd HH:mm:ss.FF",
     [string]$format = $null,
     [int]$buffer = 1024,
-    [string]$lock = $null,
     [switch]$append = $false,
     [switch]$overwrite = $false,
     [switch]$noidentity = $false,
@@ -81,6 +80,8 @@ Param(
     [switch]$pointfromtext = $false,
     [switch]$noautocommit = $false,
     [switch]$condense = $false,
+    [switch]$lock = $false,
+    [switch]$delete = $false,
     [switch]$debug = $false,
     [switch]$version = $false,
     [switch]$help = $false
@@ -343,8 +344,7 @@ foreach ($obj in $tables) {
             }
             # Handle database locks for integrity
             if ($lock) {
-                if ($lock -eq $true) { $lock = "write" }
-                WriteLine "LOCK TABLES $obj $($lock.ToUpper());" $file
+                WriteLine "LOCK TABLES $obj WRITE;" $file
             }
         } elseif ($format -eq "mssql") {
             if ($noautocommit) {
@@ -354,6 +354,11 @@ foreach ($obj in $tables) {
             if ($lock) {
                 $insertfooter = " WITH (TABLOCKX)"
             }
+        }
+
+        # Handle delete flag
+        if ($delete) {
+            WriteLine "DELETE from $obj;" $file
         }
 
         # First part of the insert statements
