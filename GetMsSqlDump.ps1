@@ -41,6 +41,10 @@
    Instructs the dump file to commit all lines at once.  May speed up processing time.  Ignored if -format is not provided.
 .PARAMETER condense
    Condense multiple INSERT INTO statements into single statements. Significant performance boost; debugging becomes difficult.
+.PARAMETER lock
+   Adds table lock instructions to the dump file
+.PARAMETER delete
+   Use with caution.  Adds a "DELETE FROM <table>;" to the beginning of the dump file.
 .PARAMETER debug
    Prints debug information for troubleshooting and debugging purposes
 .PARAMETER version
@@ -52,10 +56,9 @@
 .OUTPUTS
    stdout unless -file is provided.
 .NOTES
-  Version:        0.4.1
+  Version:        0.4.2
   Author:         Bitemo, Erik Gergely, Tres Finocchiaro
   Creation Date:  2018
-  Purpose/Change: Updated for compatiblity with SQL Server 2016
   License:        Microsoft Reciprocal License (MS-RL)
 .EXAMPLE
   .\GetMsSqlDump.ps1 -server SQL01 -db WideWorldImporters -table Sales.Customers -file ~\Sales.Customer.sql -overwrite -noidentity
@@ -79,6 +82,8 @@ Param(
     [switch]$pointfromtext = $false,
     [switch]$noautocommit = $false,
     [switch]$condense = $false,
+    [switch]$lock = $false,
+    [switch]$delete = $false,
     [switch]$debug = $false,
     [switch]$version = $false,
     [switch]$help = $false
@@ -325,11 +330,37 @@ foreach ($obj in $tables) {
         WriteLine "-- Table $obj  / scripted at $(Get-Date) on server $server, database $db" $file
         WriteLine "" $file
 
-        # Handle deferred commits, can improve performance
-        if ($noautocommit) {
-            if ($format -eq "mysql") { WriteLine "SET autocommit=0;" $file }
-            elseif ($format -eq "mssql") { WriteLine "SET IMPLICIT_TRANSACTIONS ON;" $file }
-            else { Write-Warning "Flag `$noautocommit was specified without `$format.  Ignoring." }
+        if (!$format -and $noautocommit) {
+            Write-Warning "Flag '`$noautocommit $noautocommit' was provided without specifying `$format.  Ignoring."
+        }
+        if (!$format -and $lock) {
+            Write-Warning "Flag '`$lock $lock' was provided without specifying `$format.  Ignoring."
+        }
+
+        # Handle platform-specific statements
+        $insertfooter = ""
+        if ($format -eq "mysql") {
+            # Handle deferred commits, improves performance
+            if ($noautocommit) {
+                WriteLine "SET autocommit=0;" $file
+            }
+            # Handle database locks for integrity
+            if ($lock) {
+                WriteLine "LOCK TABLES $obj WRITE;" $file
+            }
+        } elseif ($format -eq "mssql") {
+            if ($noautocommit) {
+                WriteLine "SET IMPLICIT_TRANSACTIONS ON;" $file
+            }
+            # Handle database locks for integrity
+            if ($lock) {
+                $insertfooter = " WITH (TABLOCKX)"
+            }
+        }
+
+        # Handle delete flag
+        if ($delete) {
+            WriteLine "DELETE from $obj;" $file
         }
 
         # First part of the insert statements
@@ -357,7 +388,7 @@ foreach ($obj in $tables) {
             Debug "  $($column.ColumnName): $($column.DataType)"
         }
         $insertheader = $insertheader -replace ", $", ") VALUES("
-        $terminator = ";"
+        $terminator = "$insertfooter;"
 
         $linebuffer = New-Object System.Text.StringBuilder
         $linecount = 0
@@ -384,7 +415,7 @@ foreach ($obj in $tables) {
 
                 # Each condensed block must end with a semicolon ";"
                 if ($linecount % $condensemax -eq 0 -or $linecount -eq $rows) {
-                    $terminator = ";"
+                    $terminator = "$insertfooter;"
                 } else {
                     $terminator = ","
                 }
@@ -417,10 +448,22 @@ foreach ($obj in $tables) {
         $linebuffer.Clear() | Out-Null
         $linecount = 0
 
-        # Handle deferred commits, can improve performance
-        if ($noautocommit) {
-            if ($format -eq "mysql") { WriteLine "COMMIT;" $file }
-            elseif ($format -eq "mssql") { WriteLine "COMMIT TRANSACTION;" $file }
+        # Handle platform-specific statements
+        if ($format -eq "mysql") {
+            # Handle database locks
+            if ($lock) {
+                WriteLine "UNLOCK TABLES;" $file
+            }
+            # Handle deferred commits
+            if ($noautocommit) {
+                WriteLine "COMMIT;" $file
+            }
+        } elseif ($format -eq "mssql") {
+            # Handle deferred commits
+            if ($noautocommit) {
+                WriteLine "COMMIT TRANSACTION;" $file
+            }
+            # Locks are automatically released in MSSQL
         }
     }
     # Drop the dataset

@@ -10,7 +10,7 @@
 .\GetMsSqlDump.ps1 [-server servername] [-db dbname]
    -table tablename [-query "customquery"] [-username username -password password]
    [-file filename] [-dateformat dateformat] [-format "mysql|mssql" -noautocommit]
-   [-condence] [-append] [-noidentity] [-debug] [-help] [-?]
+   [-condense] [-lock] [-delete] [-append|-overwrite] [-noidentity] [-debug] [-help] [-?]
 ```
 
 ## Description
@@ -48,6 +48,8 @@ All switched **must** be prefixed with a single hyphen.  e.g. `-append -overwrit
 | `pointfromtext` | Use PointFromText attempts to convert `SqlGeography` `POINT(x y)` values using `PointFromText('POINT(x y)')` WKT (well-known-text) conversion |
 | `noautocommit` | Instructs the dump file to commit all lines at once.  May speed up processing time.  Ignored if `-format` is not provided. |
 | `condense` | Condense multiple INSERT INTO statements into single statements. Significant performance boost; debugging becomes difficult. |
+| `lock` | Add table lock instructions to dump file. Recommended to combine with `-noautocommit`. | N/A |
+| `delete` | **Use with caution.**  Adds a `DELETE FROM <table>;` to the beginning of the dump file. | N/A |
 | `debug` |	Prints way more characters to your screen than you'd like to. If something didn't work in the way you expected, or you want to submit a bug, run your statement with the debug switch. |
 | `version` |	Prints the version information and exits. |
 | `help` or `?` |	Prints this short help. Ignores all other parameters. |
