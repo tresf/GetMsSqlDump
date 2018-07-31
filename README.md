@@ -10,7 +10,7 @@
 .\GetMsSqlDump.ps1 [-server servername] [-db dbname]
    -table tablename [-query "customquery"] [-username username -password password]
    [-file filename] [-dateformat dateformat] [-format "mysql|mssql" -noautocommit]
-   [-condence] [-append] [-noidentity] [-debug] [-help] [-?]
+   [-condense] [-lock] [-delete] [-append|-overwrite] [-noidentity] [-debug] [-help] [-?]
 ```
 
 ## Description
