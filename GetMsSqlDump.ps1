@@ -43,6 +43,8 @@
    Condense multiple INSERT INTO statements into single statements. Significant performance boost; debugging becomes difficult.
 .PARAMETER lock
    Adds table lock instructions to the dump file
+.PARAMETER delete
+   Use with caution.  Adds a "DELETE FROM <table>;" to the beginning of the dump file.
 .PARAMETER debug
    Prints debug information for troubleshooting and debugging purposes
 .PARAMETER version
