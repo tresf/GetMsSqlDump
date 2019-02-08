@@ -34,7 +34,6 @@ All parameters **must** be prefixed with a single hyphen.  e.g. `-server sql1`.
 | `format` | Destination database dump format to influence platform-specific commands.  (e.g. mysql, mssql) | N/A |
 | `buffer` | Number of records to hold in memory before writing to file, affects performance. Set to 0 to disable. | `1024`|
 | `replace` | Object used for field replacement e.g. `@{ "Table" = @{ "Field" = @{ "'Old Value'" = "'New Value'" } } }`.  If JSON is preferred, `@{ replace = (Get-Content "my.json" \| ConvertFrom-Json) }` can be used instead. | N/A |
-}
 
 ### Switches
 Switches are Boolean parameters without arguments, if they present, their value will be true.
