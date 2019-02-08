@@ -27,6 +27,8 @@
    Destination database dump format to influence platform-specific commands.  (e.g. mysql, mssql)
 .PARAMETER buffer
    Number of records to hold in memory before writing to file, affects performance.
+.PARAMETER replace
+   A powershell object containing a replacement map of table names, colums and before/after values.
 .PARAMETER append
    Appends output to the specified file.  Cannot be combined with -overwrite.
 .PARAMETER overwrite
@@ -56,7 +58,7 @@
 .OUTPUTS
    stdout unless -file is provided.
 .NOTES
-  Version:        0.4.2
+  Version:        0.4.3
   Author:         Bitemo, Erik Gergely, Tres Finocchiaro
   Creation Date:  2018
   License:        Microsoft Reciprocal License (MS-RL)
@@ -75,6 +77,7 @@ Param(
     [string]$dateformat = "yyyy-MM-dd HH:mm:ss.FF",
     [string]$format = $null,
     [int]$buffer = 1024,
+    [Object]$replace = $null,
     [switch]$append = $false,
     [switch]$overwrite = $false,
     [switch]$noidentity = $false,
@@ -392,12 +395,25 @@ foreach ($obj in $tables) {
 
         $linebuffer = New-Object System.Text.StringBuilder
         $linecount = 0
+
         # Start data extract, row by row
         foreach ($row in $tbl.Rows) {
             $vals = ""
             $linecount++
             foreach ($column in $tbl.Columns) {
-                $vals += (FieldToString $row $column) + ", "
+                $curval = (FieldToString $row $column)
+                # First, look for a replacements matching the table name
+                If($replace -and $replace."$obj" -and $replace."$obj"."$($column.ColumnName)") {
+                    $newmap = $replace."$obj"."$($column.ColumnName)"
+                    If ($newmap.PSobject.Properties.name -eq "$curval") {
+                        $vals += ($newmap."$curval") + ", "
+                        # Write-Host "Replacing $curval with $($newmap."$curval")"
+                    } Else {
+                        $vals += $curval + ", "
+                    }
+                } Else {
+                    $vals += $curval + ", "
+                }
             }
 
             # Condense multiple INSERT INTO statements
