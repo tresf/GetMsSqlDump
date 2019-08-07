@@ -118,6 +118,8 @@ if ($IsMacOS -or $IsLinux) {
     }
 }
 
+$server = $server.Replace(" ", ",")  # Fix added because somehow $server contained a space between the server name and port.
+
 #-----------------------------------------------------------[Functions]------------------------------------------------------------
 
 # Formats the cell in parameter into a string, based on its type
