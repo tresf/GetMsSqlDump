@@ -331,6 +331,11 @@ foreach ($obj in $tables) {
     # Strip dots from table names as they fail to import into MySQL
     if (!$allowdots) { $obj = $obj -replace "\.", "_" }
 
+    # Escape table names that contain spaces
+    if ($obj -match " ") {
+        $obj = '`' + $obj + '`'
+    }
+
     foreach ($tbl in $ds.Tables) {
         # Every subsequent result set will be dumped as records in the table <table>_<resultset ordinal>
         if ($resultsets -gt 0) {
