@@ -9,7 +9,7 @@
 ```ps1
 .\GetMsSqlDump.ps1 [-server servername] [-db dbname]
    -table tablename [-query "customquery"] [-username username -password password]
-   [-file filename] [-dateformat dateformat] [-format "mysql|mssql" -noautocommit]
+   [-file filename] [-dateformat dateformat] [-schema] [-format "mysql|mssql" -noautocommit]
    [-replace "@{PSObject}" [-condense] [-lock] [-delete] [-append|-overwrite]
    [-noidentity] [-debug] [-help] [-?]
 ```
@@ -43,6 +43,7 @@ All switched **must** be prefixed with a single hyphen.  e.g. `-append -overwrit
 
 | Switch | Description |
 |--------|-------------|
+| `schema` | Dumps the table `CREATE` statements only without any `INSERT` statements |
 | `append` |	Dump will be appended to the file specified by file parameter. |
 | `overwrite` | Dump will overwrite the file specified by file parameter. |
 | `noidentity` | Identity values won't be dumped. This way you can add the rows to a table with the same identity column specification. If no identity column exists in the table, the switch will be ignored. |

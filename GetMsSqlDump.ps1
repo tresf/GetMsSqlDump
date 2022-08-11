@@ -21,6 +21,8 @@
    SQL login password if SQL authentication is used and if -username is provided.
 .PARAMETER file
    Destination of the dump file. If omitted, dump will be redirected to stdout.  See also -overwrite and -append.
+.PARAMETER schema
+   Dumps the table "CREATE" statements only without any "INSERT" statements
 .PARAMETER dateformat
    Format of datetime fields in tables (e.g. yyyy-MM-dd HH:mm:ss.FF)
 .PARAMETER format
@@ -75,6 +77,7 @@ Param(
     [string]$password = "",
     [string]$file = "",
     [string]$dateformat = "yyyy-MM-dd HH:mm:ss.FF",
+    [switch]$schema = $false,
     [string]$format = $null,
     [int]$buffer = 1024,
     [Object]$replace = $null,
@@ -393,6 +396,40 @@ foreach ($obj in $tables) {
                 # is allowed per table
                 break
             }
+        }
+
+        # Create "schema"
+        # TODO: Test against relational fields
+        if($schema) {
+            $createCommand = "CREATE TABLE $obj (`n"
+            foreach ($col in $tbl.Columns) {
+                $column = $col.ColumnName
+                $type = $col.DataType
+                if ($column -match " ") {
+                    $column = '`' + $column + '`'
+                }
+                if($format -ne "mssql") {
+                    $type = switch ($type) {
+                        # MSSQL maxes at 8000, MySQL maxes at 65535
+                        "string" { "VARCHAR(8000)"; break }
+                        "bool" { "BOOLEAN"; break }
+                        "byte[]" { "BLOB"; break }
+                        "image" { "BLOB"; break }
+                        # GAAP compliance = 4 decimal places
+                        "money" { "DECIMAL(18, 4)"; break }
+                        "smallmoney" { "DECIMAL(10, 4)"; break }
+                        "datetime2" { "DATETIME"; break }
+                        default { "$type".toUpper(); break }
+                    }
+                }
+
+                $createCommand += "`t$column $type, `n"
+            }
+            # Remove trailing comma
+            $createCommand = $createCommand -replace ", $", ""
+            $createCommand += ");"
+            WriteLine $createCommand
+            continue;
         }
 
         $rows = $tbl.Rows.Count.ToString()
