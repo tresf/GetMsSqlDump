@@ -300,7 +300,15 @@ Debug "The following table(s) will be dumped: $tables"
 foreach ($obj in $tables) {
     # Construct the select query and issue the command
     # If we use a custom query, we'll use that for producing the data
-    $command = "SELECT * FROM " + $obj
+    # Handle spaces in table names
+    $objFixed = ""
+    $objParts = $obj.Split(".")
+    foreach ($part in $objParts) {
+        $objFixed += "[" + $part + "]."
+    }
+    # Remove trailing period
+    $objFixed = $objFixed.Substring(0, $objFixed.Length - 1)
+    $command = "SELECT * FROM " + $objFixed
     if ($query) {
         $command = $query
     }
